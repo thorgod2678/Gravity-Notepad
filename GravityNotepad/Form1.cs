@@ -1,9 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Security.Cryptography.Xml;
+using static System.Windows.Forms.DataFormats;
 
 
 namespace GravityNotepad
@@ -33,6 +35,7 @@ namespace GravityNotepad
         private float gravity = 0.5f; // Gravity force
         private int groundLevel;
 
+        Font USRFONT = new Font("Consolas", 10, FontStyle.Regular);
         public Form1()
         {
             InitializeComponent();
@@ -71,17 +74,17 @@ namespace GravityNotepad
 
         private void Form1_close(object? sender, FormClosingEventArgs e)
         {
-            openWindows--;
+            //  openWindows--;
 
-            if (openWindows == 0)
-            {
-                Application.Exit();
-            }
-            else
-            {
-                e.Cancel = true;
-                this.Hide();
-            }
+            //   if (openWindows == 0)
+            //{
+            //     Application.Exit();
+            // }
+            // else
+            // {
+            //  e.Cancel = true;
+            // //    this.Hide();
+            // }
 
         }
 
@@ -189,7 +192,10 @@ namespace GravityNotepad
             {
                 saveToolStripMenuItem.PerformClick();
             }
-
+            if (e.Control && e.KeyCode == Keys.O)
+            {
+                openToolStripMenuItem.PerformClick();
+            }
             if (e.Control && e.KeyCode == Keys.C)
             {
                 CopySelectedText();
@@ -210,6 +216,43 @@ namespace GravityNotepad
             {
                 PasteData();
             }
+            if (e.Control && e.KeyCode == Keys.X)
+            {
+                CopySelectedText();
+                DeleteSelectedText();
+            }
+           // if (e.Control && e.KeyCode == Keys.T)
+            //{
+               // string x = chars[0].Location.ToString();
+              //  string y = "Cursor: " + cursorX.ToString() + " " + cursorY.ToString();
+             //   MessageBox.Show(x, y);
+           // }
+            if (e.Control && e.KeyCode == Keys.W)
+            {
+                Label label = new Label
+                {
+                    Text = "⠀",
+                    Location = new Point(cursorX, cursorY),
+                    Font = USRFONT,
+                    Size = new Size(charWidth, lineHeight),
+                    Margin = new Padding(0),
+                    Padding = new Padding(0)
+                };
+
+                this.Controls.Add(label);
+                chars.Add(label);
+                velocities.Add(0);
+
+                // Move cursor
+                cursorX += charWidth;
+                if (cursorX >= this.ClientSize.Width - charWidth)
+                {
+                    cursorX = 5;
+                    cursorY += lineHeight;
+                }
+
+                cursorPanel.Location = new Point(cursorX, cursorY);
+            }
 
             cursorPanel.Location = new Point(cursorX, cursorY);
         }
@@ -223,7 +266,7 @@ namespace GravityNotepad
             {
                 Text = e.KeyChar.ToString(),
                 Location = new Point(cursorX, cursorY),
-                Font = new Font("Consolas", 10, FontStyle.Regular),
+                Font = USRFONT,
                 Size = new Size(charWidth, lineHeight),
                 Margin = new Padding(0),
                 Padding = new Padding(0)
@@ -248,16 +291,32 @@ namespace GravityNotepad
         {
             Label labelToRemove = null;
 
-            // Find the label directly at the cursor's previous position
-            foreach (Label label in chars)
+            if (cursorY == this.ClientSize.Height - (lineHeight) - 5)
             {
-                if (label.Location.X == cursorX - charWidth && label.Location.Y == cursorY)
+                foreach (Label label in chars)
                 {
-                    labelToRemove = label;
-                    break;
+                    if (label.Location.X == cursorX - charWidth && label.Location.Y == cursorY + 5)
+                    {
+                        labelToRemove = label;
+                        break;
+                    }
+
                 }
             }
+            else
+            {
+                foreach (Label label in chars)
+                {
+                    if (label.Location.X == cursorX - charWidth && label.Location.Y == cursorY)
+                    {
+                        labelToRemove = label;
+                        break;
+                    }
 
+                }
+                // / //int x = this.ClientSize.Height - (lineHeight);
+                //  MessageBox.Show("dd",x.ToString());
+            }
             if (labelToRemove != null)
             {
                 int index = chars.IndexOf(labelToRemove);
@@ -297,13 +356,13 @@ namespace GravityNotepad
         {
             if (e.Button == MouseButtons.Left)
             {
-                float x = (float)Math.Round(e.X / 10m) * 10;
-                float y = (float)Math.Round(e.Y / 20m) * 20;
+                int x = (int)(ScreenStart.X + charWidth * MathF.Round((e.X - ScreenStart.X) / charWidth));
+                int y = (int)(ScreenStart.Y + lineHeight * MathF.Round((e.Y - ScreenStart.Y) / lineHeight));
 
 
-                cursorX = (int)x;
-                cursorY = (int)y;
-
+                cursorX = x;
+                cursorY = y;
+                //MessageBox.Show("Mouse: "+e.X+" "+e.Y+";Cursor: "+x+" "+y);
                 cursorPanel.Location = new Point(cursorX, cursorY);
             }
         }
@@ -404,7 +463,7 @@ namespace GravityNotepad
                 {
                     Text = c.ToString(),
                     Location = new Point(cursorX, cursorY),
-                    Font = new Font("Consolas", 10, FontStyle.Regular),
+                    Font = USRFONT,
                     Size = new Size(charWidth, lineHeight),
                     Margin = new Padding(0),
                     Padding = new Padding(0)
@@ -440,26 +499,57 @@ namespace GravityNotepad
                 save.Increment(chars[i].Location, chars[i].Text[0], velocities[i]);
             }
 
-            MessageBox.Show(save.ToString());
+            // MessageBox.Show(save.ToString());
+
+            SaveFileDialog fileDialog = new SaveFileDialog()
+            {
+                FileName = "YourFilename",
+                Title = "Choose Save Location",
+                AddExtension = true,
+                Filter = "Text File(with gravity retained)|*.TXT|Text File(Standard)|*.txt|All Files|*.*"
+            };
+            fileDialog.ShowDialog();
 
             Serializer ss = new Serializer(save, null);
-            if (ss.Serialize() == true)
+            if (fileDialog.FilterIndex == 1)
             {
-                if (ss.WriteToFile("") == true)
+
+
+                if (ss.Serialize() == true)
                 {
-                    MessageBox.Show("Successfully Written Data");
-                }
-                else
-                {
-                    MessageBox.Show(ss.LastEx.Message);
+                    if (ss.WriteToFile(fileDialog.FileName) == true)
+                    {
+                        //MessageBox.Show("Successfully Written Data");
+                    }
+                    else
+                    {
+                        MessageBox.Show(ss.LastEx.Message);
+                    }
                 }
             }
+            else if (fileDialog.FilterIndex == 2 || fileDialog.FilterIndex == 3)
+            {
+                // MessageBox.Show("Will save as standard text");
+                if (ss.StandardSerialize() == true)
+                {
+                    if(ss.WriteToFile(fileDialog.FileName) == true)
+                    {
+
+                    }
+                    else
+                    {
+                        MessageBox.Show(ss.LastEx.Message);
+                    }
+
+                }
+            }
+
         }
 
         private void newToolStripMenuItem_Click(object sender, EventArgs e)
         {
             var f = new Form1();
-            f.Show(this);
+            f.Show();
         }
 
         private void cutToolStripMenuItem_Click(object sender, EventArgs e)
@@ -489,12 +579,12 @@ namespace GravityNotepad
         {
             FontDialog fd = new FontDialog();
             fd.ShowDialog(this);
+            USRFONT = fd.Font;
         }
 
         private void printToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            PrintDialog pd = new PrintDialog();
-            pd.ShowDialog(this);
+            Print();
         }
 
         private void pageSetupToolStripMenuItem_Click(object sender, EventArgs e)
@@ -508,7 +598,137 @@ namespace GravityNotepad
             Application.Exit();
         }
 
+        private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            About ab = new About();
+            ab.ShowDialog(this);
+
+        }
+
+        private void openToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog fileDialog = new OpenFileDialog()
+            {
+                Title = "Select File",
+                FileName = "YourFileName",
+                AddExtension = true,
+                Filter = "Text File(with gravity retained)|*.TXT|Text File(Standard)|*.txt|All Files|*.*"
+            };
+            fileDialog.ShowDialog();
+            
+            Serializer ss = new Serializer(null, null);
+            if (fileDialog.FilterIndex == 1)
+            {
+
+                if (ss.ReadFromFile(fileDialog.FileName) == true)
+                {
+                    //  MessageBox.Show(ss.data.ToString());
+                }
+                else
+                {
+                    MessageBox.Show(ss.LastEx.Message);
+                }
+
+                if (ss.Deserialize() == true)
+                {
+                    //MessageBox.Show(ss.input.ToString());
+                }
+                else
+                {
+                    MessageBox.Show(ss.LastEx.Message);
+                }
+            }
+            else if (fileDialog.FilterIndex == 2 || fileDialog.FilterIndex == 3)
+            {
+                // MessageBox.Show("will open standard text file");
+                if (ss.ReadFromFile(fileDialog.FileName) == true)
+                {
+                    if (ss.StandardDeSerialize() == true)
+                    {
+
+                    }
+                    else
+                    {
+                        MessageBox.Show(ss.LastEx.Message);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show(ss.LastEx.Message);
+                }
+            }
+            DisplayOnScreen(ss.input);
+        }
+
         #endregion
+
+
+
+        public void Print_Deprecated()
+        {
+            cursorPanel.BackColor = Color.White;
+            Rectangle x = ClientRectangle;
+            x.Location = PointToScreen(x.Location);
+            Bitmap result = Utility.GetScreenImage(x, strip1.Height);
+
+
+            // Save as PNG (or change format as needed)
+            result.Save(@"C:\Users\PULAK\Desktop\dd.png", System.Drawing.Imaging.ImageFormat.Png);
+
+
+            MessageBox.Show($"Screenshot saved: {@"C:\Users\PULAK\Desktop\dd.png"}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            cursorPanel.BackColor = Color.Black;
+        }
+        public void Print()
+        {
+
+        }
+        public void DisplayOnScreen(Save save)
+        {
+            int x = 1;
+            List<Label> labels = new List<Label>();
+
+            for (int i = 0; i < save.positions.Length; i++)
+            {
+                Label label = new Label
+                {
+                    Text = save.letters[i].ToString(),
+                    Location = save.positions[i],
+                    Font = USRFONT,
+                    Size = new Size(charWidth, lineHeight),
+                    Margin = new Padding(0),
+                    Padding = new Padding(0)
+                };
+                labels.Add(label);
+            }
+            if (x == 1)
+            {
+                foreach (Control ctrl in this.Controls.OfType<Label>().ToList())
+                {
+                    this.Controls.Remove(ctrl);
+                }
+                this.Text = save.filename;
+
+                foreach (Label label in labels)
+                {
+                    this.Controls.Add(label);
+                }
+            }
+            else
+            {
+
+
+                Form1 form1 = new Form1();
+                form1 = new Form1();
+                form1.Text = save.filename;
+                form1.Show();
+                foreach (Label label in labels)
+                {
+                    form1.Controls.Add(label);
+                }
+            }
+        }
+       
     }
 
 

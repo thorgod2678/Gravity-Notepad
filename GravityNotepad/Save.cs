@@ -15,6 +15,7 @@ namespace GravityNotepad
         
         public float[] velocities;
         int count = 0;
+        public string filename;
 
         public Save(int pc,int lc,int vc) { 
         
